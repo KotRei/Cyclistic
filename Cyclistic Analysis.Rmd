@@ -1,0 +1,154 @@
+---
+title: "Cyclistic Analysis"
+author: "Kotryna Reinyte"
+date: '2022-06-19'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# How Does a Bike-Share Navigate Speedy Success?
+
+This a capstone project for completing Google Data Analytics certificate. For this project I am assuming the role of junior data analyst in a fictional bike-sharing company Cyclistic.
+
+## About Cyclistic
+
+Cyclistic is a bike-share program that features more than 5,800 bicycles and 600 docking stations. Cyclistic sets itself apart by also offering reclining bikes, hand tricycles, and cargo bikes, making bike-share more inclusive to people with disabilities and riders who can’t use a standard two-wheeled bike. The majority of riders opt for traditional bikes; about 8% of riders use the assistive options. Cyclistic users are more likely to ride for leisure, but about 30% use them to commute to work each day.
+Context
+Cyclistic is already well-known for it’s flexibity of the pricing plans: single-ride passes, full-day passes, and annual memberships. Customers who purchase single-ride or full-day passes are referred to as casual riders.  Cyclistic’s finance analysts have concluded that annual members are much more profitable than casual riders. The director of marketing has set a goal to convert casual riders into annual members. 
+
+### Key Stakeholders
+
+#### Lily Moreno
+The director of marketing. Moreno is responsible for the development of campaigns and initiatives to promote the bike-share program. 
+
+#### Cyclistic marketing analytics team 
+A team of data analysts who are responsible for collecting, analyzing, and reporting data that helps guide Cyclistic marketing strategy
+Cyclistic executive team: The notoriously detail-oriented executive team will decide whether to approve the recommended marketing program.
+
+### Business Task
+
+The goal of this project is to answer the question: *How do annual members and casual riders use Cyclistic bikes differently?* and provide recommendations for designing a new marketing strategy.
+
+### Data Sources
+
+This project uses Cyclistic clients’ historical data from 2021 June to 2022 May. It is first-party data, i.e. it was collected by the company directly from the clients. Datasets can be found [here](https://divvy-tripdata.s3.amazonaws.com/index.html). The data has been made available by Motivate International Inc. under [this license](https://ride.divvybikes.com/data-license-agreement).
+
+### Data Cleaning
+
+For this part of the project I used RStudio.
+
+
+``` 
+##First I install & load the packages needed for the project
+
+install.packages("tidyverse")
+install.packages("lubridate")
+install.packages("janitor")
+
+library("tidyverse")
+library("lubridate")
+library("janitor")
+
+##Then I import the files
+
+jun_21 <- read_csv("~/RStudio/202106-divvy-tripdata.csv")
+jul_21 <- read_csv("~/RStudio/202107-divvy-tripdata.csv")
+aug_21 <- read_csv("~/RStudio/202108-divvy-tripdata.csv") 
+sep_21 <- read_csv("~/RStudio/202109-divvy-tripdata.csv")
+oct_21 <- read_csv("~/RStudio/202110-divvy-tripdata.csv")
+nov_21 <- read_csv("~/RStudio/202111-divvy-tripdata.csv")
+dec_21 <- read_csv("~/RStudio/202112-divvy-tripdata.csv")
+jan_22 <- read_csv("~/RStudio/202201-divvy-tripdata.csv")
+feb_22 <- read_csv("~/RStudio/202202-divvy-tripdata.csv")
+mar_22 <- read_csv("~/RStudio/202203-divvy-tripdata.csv")
+apr_22 <- read_csv("~/RStudio/202204-divvy-tripdata.csv")
+may_22 <- read_csv("~/RStudio/202205-divvy-tripdata.csv")
+
+
+
+##Comparing data frames in a list to see if bindable
+
+compare_df_cols_same(
+  jun_21, jul_21, aug_21, sep_21, oct_21, nov_21, dec_21, jan_22, feb_22, 
+  mar_22, apr_22, may_22,
+  bind_method = c("bind_rows", "rbind"),
+  verbose = TRUE
+)
+
+##Binding of the data frames
+
+data_jun_21_may_22 <- rbind(jun_21, jul_21, aug_21, sep_21, oct_21, nov_21, dec_21, 
+                    jan_22, feb_22, mar_22, apr_22, may_22)
+
+##Renaming columns for readability
+
+data_jun_21_may_22_2 <- rename(data_jun_21_may_22, start_full_date = started_at, end_full_date = ended_at)
+
+##Deleting duplicate rows, if any, and NA values
+
+data_jun_21_may_22_3 <- data_jun_21_may_22_2 %>% 
+  distinct() %>%
+  na.omit(all_months)
+
+##Deleting columns unnecessary for the analysis
+
+data_jun_21_may_22_3[ , c('start_lat', 'start_lng', 'end_lat', 'end_lng')] <- list(NULL)
+
+##Separate start_full_date column into start_date, start_month and start_hour columns. Remove leading zeroes from start_hour column
+
+data_jun_21_may_22_4 <- data_jun_21_may_22_3
+data_jun_21_may_22_4$start_date <- format(as.POSIXct(data_jun_21_may_22_3$start_full_date,format="%Y:%m:%d %H:%M:%S"),"%Y-%m-%d")
+data_jun_21_may_22_4$start_month <- format(as.POSIXct(data_jun_21_may_22_3$start_full_date,format="%Y:%m:%d %H:%M:%S"),"%h")
+data_jun_21_may_22_4$start_hour <- sub("^0", "", format(as.POSIXct(data_jun_21_may_22_3$start_full_date,format="%Y:%m:%d %H:%M:%S"),"%H"))
+
+##Create weekday column
+
+data_jun_21_may_22_4$start_weekday <- wday(data_jun_21_may_22_4$start_full_date, label=TRUE, abbr=FALSE)
+
+##Create ride_duration column
+
+data_jun_21_may_22_5 <- data_jun_21_may_22_4 %>% 
+  mutate(ride_duration = as.integer(difftime(end_full_date, start_full_date, units = "mins")))
+View(data_jun_21_may_22_5)
+
+##Sorting data by ride duration - checking for outliers
+
+newdata <- data_jun_21_may_22_5[order(data_jun_21_may_22_5$ride_duration),]
+View(newdata)
+
+newdata_2 <- data_jun_21_may_22_5[order(data_jun_21_may_22_5$ride_duration, decreasing = TRUE),]
+View(newdata_2)
+
+##Removing rows where ride duration is equal to or less than zero
+
+newdata_3 <- subset(data_jun_21_may_22_5, ride_duration > 0)
+View(newdata_3)
+
+final_data <- newdata_3[order(final_data$ride_duration),]
+View(final_data)
+
+##Export data frame as .csv file
+
+write.csv(final_data, "C:\\Users\\User\\Desktop\\final_data.csv", row.names = FALSE)
+```
+
+### Data Analysis
+
+For visualization I have to decided to use Tableau.
+
+![](C:\Users\User\Documents\Cyclistic Dashboard.png)
+
+### Insights into data:
+
+* Casual riders execute more rides on weekends than work days. They tend to go for longer rides, seemingly for leisure.
+* Members go for shorter rides, mostly during work days. Also, they ride more during cooler months than casual riders, most likely for commuting.
+* Casual members ride most from May to September.
+
+### Recommendations:
+
+* Launch a marketing campaign from May to September.
+* Offer weekend or longer rides passes for casual riders.
+* Introduce more benefits for member riders.
